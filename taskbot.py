@@ -12,6 +12,7 @@ from db import Task
 import os
 import json
 import requests
+from datetime import datetime
 
 
 class Bot():
@@ -148,13 +149,17 @@ class HandleTask(Bot):
         self.send_message("You must inform the task id", chat)
 
     def new_task(self, command, msg, chat):
-        task = Task(chat=chat, name=msg, status='TODO',
-                    dependencies='', parents='', priority='')
-        db.session.add(task)
-        db.session.commit()
-        text_message = 'New task *TODO* [[{}]] {}'
-        self.send_message(text_message\
-                    .format(task.id, task.name), chat)
+        i = len(msg.split())
+        msg = msg.split()
+        for i in range(i):
+            task = Task(chat=chat, name=''.join(msg[i]), status='TODO',
+                        dependencies='', parents='', priority='')
+            print('\ntask',task)
+            db.session.add(task)
+            db.session.commit()
+            text_message = 'New task *TODO* [[{}]] {}'
+            self.send_message(text_message\
+                        .format(task.id, task.name), chat)
         # comentado para não abrir issues no repositório
         # self.make_github_issue(task.name, 'Task of ID:[[{}]].\n\\\
                                     #   Name of task:{}\n'\
@@ -242,11 +247,7 @@ class HandleTask(Bot):
             task_id = int(msg)
             query = db.session.query(Task)\
                                      .filter_by(id=task_id, chat=chat)
-            try:
-                task = self.query_one(task_id, chat)
-            except sqlalchemy.orm.exc.NoResultFound:
-                self.task_not_found_msg(task_id, chat)
-                return
+            task = self.query_one(task_id, chat)
 
             for t in task.dependencies.split(',')[:-1]:
                 query_dep = db.session.query(Task)\
@@ -258,6 +259,31 @@ class HandleTask(Bot):
                     return
                 t.parents = t.parents\
                             .replace('{},'.format(task.id), '')
+
+            if task.parents:
+                for t in task.parents.split(',')[:-1]:
+                    query_par = db.session.query(Task)\
+                                      .filter_by(id=int(t), chat=chat)
+                    try:
+                        t = query_par.one()
+                    except sqlalchemy.orm.exc.NoResultFound:
+                        self.task_not_found_msg(task_id, chat)
+                        return
+
+                    task_dep = t.dependencies.split(',')
+                    task_dep.pop()
+                    if task_dep == None:
+                        task_dep = ''.join(task_dep)
+                    else:
+                        task_dep.remove(str(task_id))
+                        task_dep = ','.join(task_dep)
+                        if len(task_dep) > 0:
+                            task_dep = task_dep + ','
+
+                    t.dependencies = task_dep
+
+
+
             db.session.delete(task)
             db.session.commit()
             text_message = 'Task [[{}]] deleted'
@@ -373,7 +399,12 @@ class HandleTask(Bot):
             elif task.priority == 'priority':
                 icon = 'u"\U0001F6A8"'
 
-            msg_user += '[[{}]] {} {}\n'.format(task.id, icon, task.name)
+            if task.duedate:
+                msg_user += "[[{}]] {} {} \U0001F4C6{}\n".format(task.id,\
+                                                            icon, task.name,\
+                                                            task.duedate)
+            else:
+                msg_user += '[[{}]] {} {}\n'.format(task.id, icon, task.name)
             msg_user += self.deps_text(task, chat)
 
         self.send_message(msg_user, chat)
@@ -509,6 +540,56 @@ class HandleTask(Bot):
                                  chat)
             db.session.commit()
 
+    def correct_date(self, text):
+        try:
+            datetime.strptime(text, '%d/%m/%Y')
+            return True
+        except ValueError:
+            return False
+
+
+    def duedate(self, command, msg, chat):
+        text = ''
+        msg_aux = msg
+        print('\nmsg_aux:',msg_aux)
+        i = len(msg_aux.split())
+        print('i:',i)
+        msg_aux = msg_aux.split()
+        # for i in range(i):
+        msg_final = msg_aux[::2]
+        text_final = msg_aux[1::2]
+        print('msg_final:',msg_final)
+        print('text_final:', text_final)
+
+
+        if msg != '':
+            if len(msg.split(' ', 1)) > 1:
+                text = msg.split(' ', 1)[1]
+                print('\ntext',text)
+            msg = msg.split(' ', 1)[0]
+            print('\nmsg dps split:',msg)
+        if self.check_msg_not_exists(msg):
+            self.msg_no_task(chat)
+        else:
+            task_id = int(msg)
+            query = db.session.query(Task).filter_by(id=task_id, chat=chat)
+            try:
+                task = query.one()
+            except sqlalchemy.orm.exc.NoResultFound:
+                self.send_message("_404_ Task {} not found x.x".format(task_id), chat)
+                return
+
+            if text == '':
+                task.duedate = None
+                self.send_message("_Cleared_ all duedates from task {}".format(task_id), chat)
+            else:
+                if not self.correct_date(text):
+                    self.send_message("The duedate *must follow* the pattern: dd/mm/aaaa", chat)
+                else:
+                    task.duedate = datetime.strptime(text, '%d/%m/%Y')
+                    self.send_message("*Task {}* duedate: *{}*".format(task_id, text.lower()), chat)
+            db.session.commit()
+
     def handle_updates(self, updates):
         for update in updates["result"]:
             if 'message' in update:
@@ -525,7 +606,6 @@ class HandleTask(Bot):
                 msg = message["text"].split(" ", 1)[1].strip()
 
             chat = message["chat"]["id"]
-
             print(command, msg, chat)
 
             if command == '/new':
@@ -557,6 +637,9 @@ class HandleTask(Bot):
 
             elif command == '/priority':
                 self.priority(command, msg, chat)
+
+            elif command == '/duedate':
+                self.duedate(command, msg, chat)
 
             elif command == '/start':
                 self.send_message("Welcome! Here is msg_user list of things you can do."\
