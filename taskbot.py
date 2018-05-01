@@ -19,21 +19,20 @@ class Bot():
     def __init__(self):
         self.TOKEN = self.get_infos_file("/token_my_routinebot.txt", False)
         self.URL = "https://api.telegram.org/bot{}/".format(self.TOKEN)
-        self.HELP = """
-                    /new NOME
-                    /todo ID
-                    /doing ID
-                    /done ID
-                    /delete ID
-                    /list
-                    /rename ID NOME
-                    /dependson ID ID...
-                    /duplicate ID
-                    /priority ID PRIORITY{low, medium, high}
-                    /help
-                    """
-
-    # new_task = Task()
+        self.HELP = (
+            "/new NOME\n"
+            "/todo ID\n"
+            "/doing ID\n"
+            "/done ID\n"
+            "/delete ID\n"
+            "/rename ID NOME\n"
+            "/dependson ID ID...\n"
+            "/duplicate ID\n"
+            "/priority ID PRIORITY{low, medium, high}\n"
+            "/duedate ID DATE{dd/mm/aaaa}\n"
+            "/list\n"
+            "/help\n"
+        )
 
     def get_infos_file(self, input_file, set_password=False):
         home = str(Path.home())
@@ -106,8 +105,6 @@ class Bot():
                                      .filter_by(id=int(task.dependencies\
                                                 .split(',')[:-1][i]),\
                                                 chat=chat)
-            # dep = self.query_one(int(task.dependencies\
-            #                          .split(',')[:-1][i]), chat)
             dep = query.one()
 
             icon = '\U0001F195'
@@ -282,8 +279,6 @@ class HandleTask(Bot):
 
                     t.dependencies = task_dep
 
-
-
             db.session.delete(task)
             db.session.commit()
             text_message = 'Task [[{}]] deleted'
@@ -457,7 +452,6 @@ class HandleTask(Bot):
                 self.task_not_found_msg(task_id, chat)
                 return
 
-
             if text == '':
                 for i in task.dependencies.split(',')[:-1]:
                     i = int(i)
@@ -473,8 +467,8 @@ class HandleTask(Bot):
             else:
                 for depid in text.split(' '):
                     if not depid.isdigit():
-                        self.send_message("All dependencies ids must be\\\
-                                      numeric, and not {}"\
+                        self.send_message("All dependencies ids must be"
+                                      " numeric, and not {}"\
                                       .format(depid), chat)
                     else:
                         depid = int(depid)
@@ -489,12 +483,11 @@ class HandleTask(Bot):
                             if self.search_parent(task, taskdep.id, chat):
                                 taskdep.parents += str(task.id) + ','
                             else:
-                                self.send_message("Essa tarefa já é filha\\\
-                                              da sub tarefa", chat)
+                                self.send_message("Essa tarefa já é filha"
+                                              " da sub tarefa", chat)
                                 break
                         except sqlalchemy.orm.exc.NoResultFound:
-                            self.send_message("_404_ Task {} not found x.x"\
-                                         .format(depid), chat)
+                            self.task_not_found_msg(task_id, chat)
                             continue
                         deplist = task.dependencies.split(',')
                         if str(depid) not in deplist:
@@ -531,12 +524,12 @@ class HandleTask(Bot):
                              .format(task_id), chat)
             else:
                 if text.lower() not in ['high', 'medium', 'low']:
-                    self.send_message("The priority *must be* one of the\\\
-                                 following: high, medium, low", chat)
+                    self.send_message("The priority *must be* one of the"
+                                 " following: high, medium, low", chat)
                 else:
                     task.priority = text.lower()
-                    self.send_message("*Task {}* priority has priority\\\
-                                 *{}*".format(task_id, text.lower()),\
+                    self.send_message("*Task {}* priority has priority"
+                                 " *{}*".format(task_id, text.lower()),\
                                  chat)
             db.session.commit()
 
@@ -561,7 +554,6 @@ class HandleTask(Bot):
         print('msg_final:',msg_final)
         print('text_final:', text_final)
 
-
         if msg != '':
             if len(msg.split(' ', 1)) > 1:
                 text = msg.split(' ', 1)[1]
@@ -576,18 +568,21 @@ class HandleTask(Bot):
             try:
                 task = query.one()
             except sqlalchemy.orm.exc.NoResultFound:
-                self.send_message("_404_ Task {} not found x.x".format(task_id), chat)
+                self.task_not_found_msg(task_id, chat)
                 return
 
             if text == '':
                 task.duedate = None
-                self.send_message("_Cleared_ all duedates from task {}".format(task_id), chat)
+                self.send_message("_Cleared_ all duedates"
+                            " from task {}".format(task_id), chat)
             else:
                 if not self.correct_date(text):
-                    self.send_message("The duedate *must follow* the pattern: dd/mm/aaaa", chat)
+                    self.send_message("The duedate *must follow* "
+                                    "the pattern: dd/mm/aaaa", chat)
                 else:
                     task.duedate = datetime.strptime(text, '%d/%m/%Y')
-                    self.send_message("*Task {}* duedate: *{}*".format(task_id, text.lower()), chat)
+                    self.send_message("*Task {}* duedate:"
+                            " *{}*".format(task_id, text.lower()), chat)
             db.session.commit()
 
     def handle_updates(self, updates):
