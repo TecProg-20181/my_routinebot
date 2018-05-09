@@ -5,13 +5,11 @@ import requests
 import time
 import urllib
 from pathlib import Path
-from dateutil import parser
 import sqlalchemy
 import db
 from db import Task
 import os
 import json
-import requests
 from datetime import datetime
 
 
@@ -40,7 +38,7 @@ class Bot():
         com os parametros input_file e set_password
         """
         home = str(Path.home())
-        with open(home + '/my_routinebot_files' + input_file) as infile:
+        with open('/my_routinebot_files' + input_file) as infile:
             if set_password == True:
                 lines = infile.readline()[1:]
             lines = infile.readline()
