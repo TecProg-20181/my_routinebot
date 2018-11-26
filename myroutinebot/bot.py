@@ -5,13 +5,8 @@ import os
 
 
 class Bot():
-    def __init__(self):
-        self.heroku_env = False
-        if os.environ.get('SECRET_TOKEN'):#verifica se variável do heroku foi setada
-            self.heroku_env = True
-            self.TOKEN = os.environ['SECRET_TOKEN']
-        else:
-            self.TOKEN = self.get_infos_file('/token_my_routinebot.txt', False)
+    def __init__(self):        
+        self.TOKEN = "597151993:AAFYtCYeSONpV_8Fj16EmAF16XQjG0grvVo"
         self.URL = 'https://api.telegram.org/bot{}/'.format(self.TOKEN)
         self.HELP = (
             '/new NOME\n'
@@ -27,44 +22,6 @@ class Bot():
             '/list\n'
             '/help\n'
         )
-
-    def get_infos_file(self, input_file, set_password=False):
-        '''
-        Pega informações como token e identificações do arquivo de acordo
-        com os parametros input_file e set_password
-        '''
-        with open('my_routinebot_files' + input_file) as infile:
-            if set_password is True:
-                lines = infile.readline()[1:]
-            lines = infile.readline()
-        info = ""
-        for line in lines:
-            info += line
-        info = info.rstrip('\n')
-        return info
-
-    def make_github_issue(self, title, body=None):
-        '''
-        Cria nova issue no repositório de acordo com a url
-        '''
-        url = 'https://api.github.com/repos/TecProg-20181/my_routinebot/issues'
-        session = requests.Session()
-        session.auth = (self.get_infos_file("/username_git.txt", False),
-                        self.get_infos_file("/username_git.txt", True))
-        if self.heroku_env:
-            session.auth = (os.environ['GIT_USER'],\
-                           os.environ['GIT_PASSWORD'])
-        else:
-            session.auth = (self.get_infos_file("/username_git.txt", False),
-                            self.get_infos_file("/username_git.txt", True))
-        issue = {'title': title,
-                 'body': body}
-        r = session.post(url, json.dumps(issue))
-        if r.status_code == 201:
-            print('Successfully created Issue {0:s}'.format(title))
-        else:
-            print('Could not create Issue {0:s}'.format(title))
-            print('Response:', r.content)
 
     def get_url(self, url):
         '''
