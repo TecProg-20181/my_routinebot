@@ -67,12 +67,28 @@ class HandleTask(Bot):
             db.session.commit()
             text_message = 'New task *TODO* [[{}]] {}'
             self.send_message(text_message.format(task.id, task.name), chat)
+            self.make_github_issue(task.name, 'Task of ID:[[{}]].\n\
+                                               Name of task:{}'
+                                               .format(task.id, task.name))
 
     def condition_len_msg(self, msg):
         '''
         Retorna true caso o tamanho da mensagem seja maior que uma palavra
         '''
         if len(msg.split(' ', 1)) > 1:
+            return True
+
+    def split_msg(self, msg, element):
+        '''
+        Realiza o split de uma mensagem
+        '''
+        return msg.split(' ', 1)[element]
+
+    def msg_not_empty(self, msg):
+        '''
+        Retorna true caso a mensagem não esteja vazia
+        '''
+        if msg != '':
             return True
 
     def rename(self, command, msg, chat):
@@ -184,6 +200,10 @@ class HandleTask(Bot):
                 self.send_message(text_message.format(dep_task.id,
                                                       dep_task.name),
                                   chat)
+                self.make_github_issue(task.name, 'Task of ID:[[{}]].\n\
+                                       Name of task:{}'
+                                      .format(task.id, task.name))
+
 
     def delete(self, command, msg, chat):
         '''
@@ -239,13 +259,6 @@ class HandleTask(Bot):
                 text_message = 'Task [[{}]] deleted'
                 self.send_message(text_message.format(task_id), chat)
 
-    def task_state(self, task, chat, state):
-        task.status = state
-        db.session.commit()
-        text_message = '*'+ state +'* task [[{}]] {}'
-        self.send_message(text_message
-                            .format(task.id, task.name), chat)
-
     def todo(self, command, msg, chat):
         '''
         Adiciona uma task para o status TODO
@@ -262,12 +275,15 @@ class HandleTask(Bot):
                 except sqlalchemy.orm.exc.NoResultFound:
                     self.task_not_found_msg(task_id, chat)
                     continue
-                state = 'TODO'
-                self.task_state(task, chat, state)
+                task.status = 'TODO'
+                db.session.commit()
+                text_message = '*TODO* task [[{}]] {}'
+                self.send_message(text_message
+                                  .format(task.id, task.name), chat)
 
     def doing(self, command, msg, chat):
         '''
-        Adiciona uma task para o status DOING
+        Adiciona uma task para o status DgiOING
         '''
         msg = self.strip_message(msg)
         for i in range(len(msg)):
@@ -281,8 +297,11 @@ class HandleTask(Bot):
                 except sqlalchemy.orm.exc.NoResultFound:
                     self.task_not_found_msg(task_id, chat)
                     continue
-                state = 'DOING'
-                self.task_state(task, chat, state)
+                task.status = 'DOING'
+                db.session.commit()
+                text_message = '*DOING* task [[{}]] {}'
+                self.send_message(text_message
+                                  .format(task.id, task.name), chat)
 
     def done(self, command, msg, chat):
         '''
@@ -300,8 +319,12 @@ class HandleTask(Bot):
                 except sqlalchemy.orm.exc.NoResultFound:
                     self.task_not_found_msg(task_id, chat)
                     continue
-                state = 'DONE'
-                self.task_state(task, chat, state)
+
+                task.status = 'DONE'
+                db.session.commit()
+                text_message = '*DONE* task [[{}]] {}'
+                self.send_message(text_message.format(task.id, task.name),
+                                  chat)
 
     def task_condition(self, task, condition):
         if task  == condition:
@@ -346,6 +369,7 @@ class HandleTask(Bot):
 
         for task in query.all():
             msg_user += '{}[[{}]] {}\n'.format(ARROW, task.id, task.name)
+
         return msg_user
 
     def task_settings_msg(self, chat, msg_user):
@@ -360,7 +384,7 @@ class HandleTask(Bot):
         msg_user += self.task_priority('low', chat)
         return msg_user
 
-    def lista(self, command, msg, chat):
+    def list(self, command, msg, chat):
         '''
         Lista todas tasks suas prioridades, status e duedates
         '''
@@ -579,8 +603,6 @@ class HandleTask(Bot):
             chat = message['chat']['id']
             print(command, msg, chat)
             if command == '/new':
-                print('###################')
-                print(command, msg, chat)
                 self.new_task(command, msg, chat)
             elif command == '/rename':
                 self.rename(command, msg, chat)
@@ -595,7 +617,7 @@ class HandleTask(Bot):
             elif command == '/done':
                 self.done(command, msg, chat)
             elif command == '/list':
-                self.lista(command, msg, chat)
+                self.list(command, msg, chat)
             elif command == '/dependson':
                 self.dependson(command, msg, chat)
             elif command == '/priority':
